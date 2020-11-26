@@ -1,14 +1,19 @@
 ---
-title: "Final Project"
+title: "Final Project - Interim Report"
 author: "Anish Shenoy, Jae Yoon Kim"
 date: "11/25/2020"
 output: pdf_document
 ---
+# Effects of Global Warming Induced Flooding on Low Lying Areas
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rstanarm)
+library(ggmap)
+library(zipcode)
+library(bayesplot)
+data(zipcode)
 ```
 
 ### Import and Merge data
@@ -16,7 +21,8 @@ library(rstanarm)
 First, import the First Street Foundation (FSF) Flood Risk Summary Statistics by zip
 found here: https://registry.opendata.aws/fsf-flood-risk/?fbclid=IwAR2JUyZWXcXiKdXuXMXON-1VmcUm6RpCnUVXMiydCrrDCaXHg41zdkD-iI8
 ``` {r echo=TRUE, message=FALSE}
-zip_risk <- read_csv("data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+# zip_risk <- read_csv("./data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+zip_risk <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/FSF/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
 zip_risk
 ```
 <br>
@@ -47,6 +53,8 @@ zip_income_data <- get_acs(geography = "zcta",
 ```
 <br>
 
+
+
 Finally, merge the the data by zip code
 ``` {r echo=TRUE}
 merged <- inner_join(zip_dem_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
@@ -54,6 +62,8 @@ merged <- inner_join(zip_dem_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
   select(-NAME.y) %>%
   mutate(prop_white = total_white/total_pop,
          prop_black = total_black/total_pop)
+
+merged <- inner_join(merged, zipcode, by=c('GEOID'='zip'))
 
 merged
 ```
@@ -79,6 +89,179 @@ merged %>%
                        y = pct_fs_fema_difference_2020)) +
   geom_point()
 ```
-<br>
+
+
+```{r}
+# Download a map of the CONUS
+conus_map<-get_map(location=c(-124.848974, 24.396308, -66.885444, 49.384358), 
+                   zoom=5, maptype = 'terrain',
+             source='osm',color='color')
+ggmap(conus_map)
+```
+
+Graph of FEMA average risk scores per zip code overlayed across entire Continental USA. Three regions jump out: Kentucky/West Virginia, Coast of Virginia, and the Gulf Coast/panhandle. We will look at each more 
+```{r}
+ggmap(conus_map) + geom_point(
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
+        data=merged, alpha=.2, na.rm = T)  + 
+        scale_color_gradient(low="beige", high="blue") + 
+        labs(title='Average Risk score for each zipcode in CONUS')
+
+```
+
+
+
+```{r}
+# Download a terrain map of the WV to understand why it's flooding so much
+wv_bbox <- c(-85, 35, -75, 42)
+wv_map<-get_map(location=wv_bbox, zoom=6, maptype = 'terrain',
+             source='osm',color='color', size = c(800, 800))
+ggmap(wv_map)
+```
+
+
+```{r}
+wv_merged <- filter(.data=merged, latitude >= wv_bbox[2], latitude <= wv_bbox[4],
+                    longitude >= wv_bbox[1], longitude <= wv_bbox[3])
+
+# Overlay the risk scores to understand
+ggmap(wv_map)+ geom_point(
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
+        data=wv_merged, alpha=.5, na.rm = T)  + 
+        scale_color_gradient(low="beige", high="blue") + 
+        labs(title='Average Risk score for each zipcode in WV and Virginia Coast')
+```
+
+
+```{r}
+# Download a terrain map of the gulf coast to understand why it's flooding so much
+fl_bbox <- c(-100, 25, -75, 32)
+fl_map<-get_map(location=fl_bbox, zoom=6, maptype = 'terrain',
+             source='osm',color='color')
+ggmap(fl_map)
+```
+
+```{r}
+fl_merged <- filter(.data=merged, latitude >= fl_bbox[2], latitude <= fl_bbox[4], 
+                    longitude >= fl_bbox[1], longitude <= fl_bbox[3])
+
+# Overlay the risk scores to understand
+ggmap(fl_map)+ geom_point(
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
+        data=fl_merged, alpha=.5, na.rm = T)  + 
+        scale_color_gradient(low="beige", high="blue") + 
+        labs(title='Average Risk score for each zipcode in the Gulf Coast')
+```
+
+In September of 2005, Hurricane Katrina, a Category 5 storm, destroyed New Orleans and was at the time the costliest tropical cyclone on record. There was much criticism of the government response, especially when people began to observe mass negligence and mismanagment, and were even more enraged when they believed it was fueled by race or class. One of the more memorable moments was when rapper, producer, fashion designer, and future presidential nominee Kanye West criticized the George Bush administration, calling them out because he thought "George Bush doesn't care about Black people".
+
+Since we have the percent difference between FEMA projections and projections by First Street Foundations to see if we can find a relationship between it and black/minority percentage in that zipcode.
+```{r}
+
+LA_m <- filter(merged, state == 'LA')
+
+yint <- mean(LA_m$pct_fs_fema_difference_2020)
+
+
+merged %>%
+  filter(state == 'LA') %>%
+  ggplot(mapping = aes(x = (prop_black),
+                       y = pct_fs_fema_difference_2020,
+                       )) +
+  geom_point(alpha = 0.5) + 
+  geom_hline(yintercept = yint,color='red')
+```
+
+
+We find the regression to be pct_difference = -14.2 + 16.3(prop_black), however the standard error is incredibly high, and 
+```{r}
+LA_fit <- stan_glm(data = LA_m, pct_fs_fema_difference_2020 ~ prop_black +
+                     median_incomeE + prop_black:median_incomeE, refresh=0)
+LA_fit
+#p <- predict(LA_fit)
+#gt <- slice_head(drop_na(data=LA_m, pct_fs_fema_difference_2020)$pct_fs_fema_difference_2020, 464)
+#pgt <- data.frame(p, gt)
+#ggplot(data=pgt, mapping = aes(x=gt, y=p)) + 
+#  geom_point() + 
+#  geom_abline()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
