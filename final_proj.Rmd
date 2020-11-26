@@ -32,22 +32,26 @@ census_api_key("0a473d1b1e161d8f87da3ad85e59af583f28f1d6")
 # H006001: TOTAL ALL RACES IN HOUSEHOLD
 # H006002: TOTAL HOUSEHOLDER WHITE ALONE
 # H006003: TOTAL BLACK/AFRICAN-AMERICAN ALONE
-zip_data <- get_decennial(geography = "zcta",
-                          variables = c("P013001", "H006001", "H006002", "H006003"),
+zip_dem_data <- get_decennial(geography = "zcta",
+                          variables = c(median_age = "P013001", 
+                                        total_pop = "H006001", 
+                                        total_white = "H006002", 
+                                        total_black = "H006003"),
                           year = 2010,
-                          output = "wide") %>%
-  rename(median_age = P013001,
-         total_pop = H006001,
-         total_white = H006002,
-         total_black = H006003)
-zip_data
+                          output = "wide")
+
+zip_income_data <- get_acs(geography = "zcta",
+                           variables = c(median_income = "B19013_001"),
+                           year = 2018,
+                           output = "wide")
 ```
 <br>
 
 Finally, merge the the data by zip code
 ``` {r echo=TRUE}
-merged <- inner_join(zip_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
-  select(-NAME) %>%
+merged <- inner_join(zip_dem_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
+  inner_join(zip_income_data, by = "GEOID") %>%
+  select(-NAME.y) %>%
   mutate(prop_white = total_white/total_pop,
          prop_black = total_black/total_pop)
 
@@ -55,11 +59,11 @@ merged
 ```
 ### Preliminary Data Exploration
 
-Graph how average risk score correlates with proportion of white
+Graph how average risk score correlates with median income
 ``` {r echo = TRUE}
 merged %>%
-  ggplot(mapping = aes(x = prop_white,
-                       y = pct_fs_risk_2050_100)) +
+  ggplot(mapping = aes(x = median_incomeE,
+                       y = avg_risk_score_all)) +
   geom_point()
 ```
 <br>
