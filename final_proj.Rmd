@@ -71,6 +71,14 @@ merged %>%
                        y = avg_risk_score_all)) +
   geom_point()
 ```
-<br>
+
+Graph of FEMA under/overestimate with FSF data
 ``` {r echo=TRUE}
+merged %>%
+  ggplot(mapping = aes(x = median_incomeE,
+                       y = pct_fs_fema_difference_2020)) +
+  geom_point()
 ```
+<br>
+
+
