@@ -1,0 +1,20 @@
+Version 1.0.0 of the First Street Foundation Flood Model Aggregate Data are licensed for noncommercial use (CC 4.0 BY-NC-SA)  and any use of this data should be attributed to the First Street Foundation Flood Model with citation of the most current Technical Methodology Document.  A simlified methodology document to understand how these data were developed is also available here.,
+Variable,Variable Label
+ZipCode,Zipcode (5 Digit)
+state,State
+Total Properties,Total Properties in Zipcode
+FEMA Properties at Risk 2020 (total),"Total Properties Identified at Risk by FEMA, 2020"
+FEMA Properties at Risk 2020 (pct),"Percent of Properties Identified at Risk by FEMA, 2020"
+FS Properties at Risk 2020 (total),"Total Properties Identified at Risk by First Street Model, 2020"
+FS Properties at Risk 2020 (pct),"Percent of Properties Identified at Risk by First Street Model, 2020"
+FS Properties at Risk 2035 (total),"Total Properties Identified at Risk by First Street Model, 2035"
+FS Properties at Risk 2035 (pct),"Percent of Properties Identified at Risk by First Street Model, 2035"
+FS Properties at Risk 2050 (total),"Total Properties Identified at Risk by First Street Model, 2050"
+FS Properties at Risk 2050 (pct),"Percent of Properties Identified at Risk by First Street Model, 2050"
+"FS-FEMA Difference, 2020 (total)","Absolute Difference in Risk between First Street Model and FEMA, 2020"
+"FS-FEMA Difference, 2020 (pct)","Percent Change in Risk between First Street Model and FEMA, 2020"
+"Avg Risk Score, (2+ Only)",Average Risk Score of Only Properties with ANY RISK (FloodFactor > 1)
+"Avg Risk Score, (All Props)",Average Risk Score of All Properties
+"Avg Risk Score, (FSF 1-100 Risk)",Average Risk Score of Properties with 1-100 First Street Model Risk in 2020
+"Avg Risk Score, (FEMA SFHA Risk)","Average Risk Score of Properties with 1-100 FEMA SFHA Risk, 2020"
+"Avg Risk Score, (No FEMA SFHA Risk)","Average Risk Score of Properties without 1-100 FEMA SFHA Risk, 2020"

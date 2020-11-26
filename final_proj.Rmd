@@ -12,7 +12,17 @@ library(rstanarm)
 ```
 
 ### Import the data
-``` {r echo=TRUE}
-zip_risk <- read_csv("data/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+
+First, import the First Street Foundation (FSF) Flood Risk Summary Statistics by zip
+found here: https://registry.opendata.aws/fsf-flood-risk/?fbclid=IwAR2JUyZWXcXiKdXuXMXON-1VmcUm6RpCnUVXMiydCrrDCaXHg41zdkD-iI8
+``` {r echo=TRUE, message=FALSE}
+zip_risk <- read_csv("data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
 zip_risk
+```
+<br>
+
+Next, import data about each zip code in the US
+``` {r echo=TRUE}
+zip_data <- read_csv("data/zip/uszips.csv")
+zip_data
 ```
