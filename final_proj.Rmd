@@ -36,10 +36,10 @@ zip_data <- get_decennial(geography = "zcta",
                           variables = c("P013001", "H006001", "H006002", "H006003"),
                           year = 2010,
                           output = "wide") %>%
-  rename(Median.age = P013001,
-         Total.pop = H006001,
-         Total.white = H006002,
-         Total.black = H006003)
+  rename(median_age = P013001,
+         total_pop = H006001,
+         total_white = H006002,
+         total_black = H006003)
 zip_data
 ```
 <br>
@@ -47,8 +47,19 @@ zip_data
 Finally, merge the the data by zip code
 ``` {r echo=TRUE}
 merged <- inner_join(zip_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
-  select(-NAME)
+  select(-NAME) %>%
+  mutate(prop_white = total_white/total_pop,
+         prop_black = total_black/total_pop)
 
 merged
 ```
 ### Preliminary Data Exploration
+
+Graph how average risk score correlates with proportion of white
+``` {r echo = TRUE}
+merged %>%
+  ggplot(mapping = aes(x = prop_white,
+                       y = pct_fs_risk_2050_100)) +
+  geom_point()
+```
+<br>
