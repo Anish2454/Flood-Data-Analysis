@@ -59,6 +59,11 @@ merged
 ```
 ### Preliminary Data Exploration
 
+Questions to answer:<br>
+1) Are communities that are poorer at higher risk of flooding?
+2) What is the racial makeup of high-risk communities? Are certain groups disproportionately affected?
+3) Where does the FEMA data disagree most with the private data? Are there any patterns? Where were the increases and decreases?
+
 Graph how average risk score correlates with median income
 ``` {r echo = TRUE}
 merged %>%
@@ -67,3 +72,5 @@ merged %>%
   geom_point()
 ```
 <br>
+``` {r echo=TRUE}
+```
