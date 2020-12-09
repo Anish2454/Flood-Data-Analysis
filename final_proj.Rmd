@@ -14,6 +14,7 @@ library(ggmap)
 library(zipcode)
 library(bayesplot)
 data(zipcode)
+library(readr)
 ```
 
 ### Import and Merge data
@@ -102,7 +103,7 @@ ggmap(conus_map)
 Graph of FEMA average risk scores per zip code overlayed across entire Continental USA. Three regions jump out: Kentucky/West Virginia, Coast of Virginia, and the Gulf Coast/panhandle. We will look at each more 
 ```{r}
 ggmap(conus_map) + geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
         data=merged, alpha=.2, na.rm = T)  + 
         scale_color_gradient(low="beige", high="blue") + 
         labs(title='Average Risk score for each zipcode in CONUS')
@@ -126,7 +127,7 @@ wv_merged <- filter(.data=merged, latitude >= wv_bbox[2], latitude <= wv_bbox[4]
 
 # Overlay the risk scores to understand
 ggmap(wv_map)+ geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
         data=wv_merged, alpha=.5, na.rm = T)  + 
         scale_color_gradient(low="beige", high="blue") + 
         labs(title='Average Risk score for each zipcode in WV and Virginia Coast')
@@ -147,11 +148,104 @@ fl_merged <- filter(.data=merged, latitude >= fl_bbox[2], latitude <= fl_bbox[4]
 
 # Overlay the risk scores to understand
 ggmap(fl_map)+ geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
         data=fl_merged, alpha=.5, na.rm = T)  + 
         scale_color_gradient(low="beige", high="blue") + 
         labs(title='Average Risk score for each zipcode in the Gulf Coast')
 ```
+
+
+
+Of these, we would like to look at Florida in more depth. Florida is in a unique position where there are large portions of the state where many people live with high risk scores. 
+```{r}
+fl <- filter(.data=merged, state == 'FL')
+fl
+```
+
+```{r}
+fl_only_bbox <- c(-90, 24, -78, 31)
+fl_only_merged <- filter(.data=merged, latitude >= fl_only_bbox[2], latitude <= fl_only_bbox[4], 
+                    longitude >= fl_only_bbox[1], longitude <= fl_only_bbox[3])
+fl_only_map<-get_map(location=fl_only_bbox, zoom=6, maptype = 'terrain',
+             source='osm',color='color')
+# Overlay the risk scores to understand
+# make the absolute value of the percentage off the size. We care about the magnitude of their error, not necessarily the size for a broad overview.
+ggmap(fl_only_map)+ geom_point(
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
+        data=fl_only_merged, alpha=.4, na.rm = T)  + 
+        scale_color_gradient2(low="red", mid="white", high="blue") + 
+        labs(title='Average Risk score for each zipcode in Florida')
+```
+
+```{r}
+ggplot(fl_only_merged, aes(x=avg_risk_score_all, y=total_pop)) + geom_point()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 In September of 2005, Hurricane Katrina, a Category 5 storm, destroyed New Orleans and was at the time the costliest tropical cyclone on record. There was much criticism of the government response, especially when people began to observe mass negligence and mismanagment, and were even more enraged when they believed it was fueled by race or class. One of the more memorable moments was when rapper, producer, fashion designer, and future presidential nominee Kanye West criticized the George Bush administration, calling them out because he thought "George Bush doesn't care about Black people".
 
@@ -186,13 +280,127 @@ LA_fit
 #  geom_abline()
 ```
 
+## Housing Changes
+
+To get a picture of how the real estate market would change as a result of flooding, let's first try to understand the real estate market. Here, we'll be taking a look at both residential rent prices. Residential home prices are coming from the Housing and Urban Development's Small area fair market rents, which are used to give vouchers for people on section 8 housing. These should be relatively accurate in reflecting current fair market rents. 
+
+We would like to limit it to the state of florida since the way that rent prices are determined varies widly from region to region, much less state to state. 
+
+Out of 1469 zip codes in Florida, we have residential rental data on 1431.
+
+Let's unpack the dataset and merge it with our existing. 
+```{r}
+rent_price <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/fy2021-safmrs.csv")
+rent_price
+```
+
+```{r}
+# rename some stuff
+names(rent_price)[names(rent_price) == 'ZIP\nCode'] <- 'zip'
+names(rent_price)[names(rent_price) == 'HUD Metro Fair Market Rent Area Name'] <- 'RegionName'
+names(rent_price)[names(rent_price) == 'SAFMR\n2BR -\n110%\nPayment\nStandard'] <- 'BR2_rent'
+names(rent_price)
+names(merged)
+```
 
 
 
+```{r}
+# Merge things in
+rent_price <- filter(rent_price, grepl("FL", RegionName))
+
+merged_rent <- inner_join(rent_price, merged, by = c("zip" = "GEOID"))
+merged_rent <- merged_rent %>% 
+  filter(!is.na(BR2_rent)) %>%
+  transmute(zip, BR2_rent=parse_number(BR2_rent), total_pop, prop_black, 
+            count_property, median_incomeE, pct_fs_fema_difference_2020, 
+            avg_risk_score_all, state, city, longitude, latitude)
+
+rent_mean <- mean(merged_rent$BR2_rent)
+rent_sd <- sd(merged_rent$BR2_rent)
+# Z score the rent, log median income and property count and total_population
+merged_rent <- mutate(merged_rent, BR2_z = (BR2_rent - rent_mean) / rent_sd, 
+                      log_incomeE = log(median_incomeE), 
+                      log_property = log(count_property), log_pop=log(total_pop))
+
+names(merged_rent)
+merged_rent <- drop_na(merged_rent)
+merged_rent
+```
 
 
+```{r}
+rent_fit <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
+                       log_property+log_incomeE, refresh=0)
+rent_fit
+coef(rent_fit)
+```
+
+We try to compare different fits by using different predictors and interactors
+```{r}
+rent_fit_a <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
+                         log_property+log_incomeE, refresh=0)
+rent_fit_a
+
+rent_fit_b <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
+                         log_property+log_incomeE+
+                         log_incomeE:log_property, refresh=0)
+rent_fit_b
+
+rent_fit_c <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
+                         log_property+log_incomeE+
+                         log_property:log_pop, refresh=0)
+rent_fit_c
+```
+```{r}
+# we compare these with loo_cv
+a_loo <- loo(rent_fit_a, k_threshold = 0.7)
+b_loo <- loo(rent_fit_b, k_threshold = 0.7)
+c_loo <- loo(rent_fit_c, k_threshold = 0.7)
+
+loo_compare(a_loo, b_loo, c_loo)
+```
+The three regression models after going through leave-one-out cross validation we can see their predictive accuracy. We find that c_fit has the highest predictive accuracy when looking at the elpd_diff relative to the standard error when compared with a_fit and b_fit
+```{r}
+rent_fit <- rent_fit_c
+```
 
 
+```{r}
+# simulate a disaster where we lose a certain number of properties 
+# take a normal random and multiplied against avg_risk_score which 
+# ranges from 0 to 10 and that percentage is lost. 
+post_rent <- mutate(.data=merged_rent, 
+                    pct_left = 1-((abs(rnorm(1, mean=0, sd=(0.1)))) 
+                                  * avg_risk_score_all), 
+                    log_property = log(1+pct_left * count_property))
+post_rent <- drop_na(post_rent)
+# take 10 draws for each and take median
+n_draws <- 10
+preds <- posterior_predict(rent_fit, newdata=post_rent, draws=n_draws)
+preds <- apply(preds, 2, median, na.rm=TRUE)
+length(preds)
+```
+
+
+```{r}
+# subtract the original rent prices from predictions to find 
+# estimated nominal rent difference 
+merged_rent$delta_rent <- preds * rent_sd - merged_rent$BR2_z * rent_sd
+merged_rent
+
+```
+```{r}
+fl_only_bbox <- c(-88, 25, -79.5, 31)
+fl_only_map<-get_map(location=fl_only_bbox, zoom=6, maptype = 'terrain',
+             source='osm',color='color')
+# Overlay the risk scores to understand
+ggmap(fl_only_map)+ geom_point(
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=delta_rent), 
+        data=merged_rent, alpha=.5, na.rm = T)  + 
+        scale_color_gradient2(low="blue", mid="white", high="red") + 
+        labs(title='Change in rent in $ for each zipcode in Florida')
+```
 
 
 
