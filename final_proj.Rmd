@@ -1,5 +1,5 @@
 ---
-title: "Final Project - Interim Report"
+title: "Final Project"
 author: "Anish Shenoy, Jae Yoon Kim"
 date: "11/25/2020"
 output: pdf_document
@@ -14,20 +14,19 @@ library(ggmap)
 library(zipcode)
 library(bayesplot)
 data(zipcode)
-library(readr)
 ```
 
-### Import and Merge data
+## Import, Merge, and Clean data
 
 First, import the First Street Foundation (FSF) Flood Risk Summary Statistics by zip
 found here: https://registry.opendata.aws/fsf-flood-risk/?fbclid=IwAR2JUyZWXcXiKdXuXMXON-1VmcUm6RpCnUVXMiydCrrDCaXHg41zdkD-iI8
 ``` {r echo=TRUE, message=FALSE}
-# zip_risk <- read_csv("./data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
-zip_risk <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/FSF/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+zip_risk <- read_csv("./data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+# zip_risk <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/FSF/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
 zip_risk
 ```
-<br>
 
+<br>
 Next, import data about each zip code in the US uing the tidycensus package
 ``` {r echo=TRUE, message=FALSE}
 library(tidycensus)
@@ -54,209 +53,135 @@ zip_income_data <- get_acs(geography = "zcta",
 ```
 <br>
 
-
-
 Finally, merge the the data by zip code
 ``` {r echo=TRUE}
 merged <- inner_join(zip_dem_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
   inner_join(zip_income_data, by = "GEOID") %>%
   select(-NAME.y) %>%
   mutate(prop_white = total_white/total_pop,
-         prop_black = total_black/total_pop)
-
-merged <- inner_join(merged, zipcode, by=c('GEOID'='zip'))
+         prop_black = total_black/total_pop,
+         prop_nonwhite = 1 - prop_white) %>%
+  inner_join(zipcode, by=c('GEOID'='zip')) %>%
+  # Get rid of counties with no houses at risk now or in the future
+  # Make sure we don't have NA's in demographic info
+  filter(count_fs_risk_2050_100 > 0,
+         count_fs_risk_2020_100 > 0,
+         prop_nonwhite >= 0,
+         median_incomeE > 0,
+         median_age > 0,
+         total_pop > 0)
 
 merged
 ```
-### Preliminary Data Exploration
+\newpage
 
-Questions to answer:<br>
-1) Are communities that are poorer at higher risk of flooding?
-2) What is the racial makeup of high-risk communities? Are certain groups disproportionately affected?
-3) Where does the FEMA data disagree most with the private data? Are there any patterns? Where were the increases and decreases?
+## Preliminary Data Exploration
 
-Graph how average risk score correlates with median income
-``` {r echo = TRUE}
-merged %>%
-  ggplot(mapping = aes(x = median_incomeE,
-                       y = avg_risk_score_all)) +
-  geom_point()
-```
-
-Graph of FEMA under/overestimate with FSF data
-``` {r echo=TRUE}
-merged %>%
-  ggplot(mapping = aes(x = median_incomeE,
-                       y = pct_fs_fema_difference_2020)) +
-  geom_point()
-```
-
-
-```{r}
+Graph of FEMA average risk scores per zip code overlayed across entire Continental USA.
+```{r echo=TRUE, message=FALSE}
 # Download a map of the CONUS
-conus_map<-get_map(location=c(-124.848974, 24.396308, -66.885444, 49.384358), 
-                   zoom=5, maptype = 'terrain',
-             source='osm',color='color')
-ggmap(conus_map)
+conus_map<- get_map(location=c(-124.848974, 24.396308, -66.885444, 49.384358), 
+                    zoom=5, maptype = 'terrain',
+                    source='osm',color='color')
+
+ggmap(conus_map) + 
+  geom_point(aes(x=longitude, 
+                 y=latitude, 
+                 show_guide = TRUE, 
+                 colour=avg_risk_score_all), 
+             data=merged, alpha=.2, na.rm = T)  + 
+  scale_color_gradient(low="beige", high="blue") + 
+  labs(title='Average Risk score for each zipcode in CONUS')
 ```
-
-Graph of FEMA average risk scores per zip code overlayed across entire Continental USA. Three regions jump out: Kentucky/West Virginia, Coast of Virginia, and the Gulf Coast/panhandle. We will look at each more 
-```{r}
-ggmap(conus_map) + geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
-        data=merged, alpha=.2, na.rm = T)  + 
-        scale_color_gradient(low="beige", high="blue") + 
-        labs(title='Average Risk score for each zipcode in CONUS')
-
+<br>
+This map shows where scores from FEMA disagrees with the FSF data
+``` {r echo=TRUE}
+# Where did FEMA get it wrong
+ggmap(conus_map) + 
+  geom_point(aes(x=longitude, 
+                 y=latitude, 
+                 show_guide = TRUE, 
+                 colour = abs(pct_fs_fema_difference_2020)), 
+             data=merged, alpha=.2, na.rm = T)  + 
+  scale_color_gradient(low="beige", high="blue") + 
+  labs(title='FEMA vs FSF')
 ```
+\newpage
+Three regions jump out: Kentucky/West Virginia, Coast of Virginia, and the Gulf Coast/panhandle. We will look at each in more detail. 
 
-
-
-```{r}
+```{r echo=TRUE, message=FALSE}
 # Download a terrain map of the WV to understand why it's flooding so much
 wv_bbox <- c(-85, 35, -75, 42)
 wv_map<-get_map(location=wv_bbox, zoom=6, maptype = 'terrain',
              source='osm',color='color', size = c(800, 800))
-ggmap(wv_map)
-```
 
-
-```{r}
 wv_merged <- filter(.data=merged, latitude >= wv_bbox[2], latitude <= wv_bbox[4],
                     longitude >= wv_bbox[1], longitude <= wv_bbox[3])
 
 # Overlay the risk scores to understand
 ggmap(wv_map)+ geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
         data=wv_merged, alpha=.5, na.rm = T)  + 
         scale_color_gradient(low="beige", high="blue") + 
         labs(title='Average Risk score for each zipcode in WV and Virginia Coast')
 ```
+<br>
+The majority of risk in West Virginia comes from around Charleston along the river. 
 
-
-```{r}
+```{r echo=TRUE, message=FALSE}
 # Download a terrain map of the gulf coast to understand why it's flooding so much
 fl_bbox <- c(-100, 25, -75, 32)
 fl_map<-get_map(location=fl_bbox, zoom=6, maptype = 'terrain',
              source='osm',color='color')
-ggmap(fl_map)
-```
 
-```{r}
 fl_merged <- filter(.data=merged, latitude >= fl_bbox[2], latitude <= fl_bbox[4], 
                     longitude >= fl_bbox[1], longitude <= fl_bbox[3])
 
 # Overlay the risk scores to understand
 ggmap(fl_map)+ geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
+        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
         data=fl_merged, alpha=.5, na.rm = T)  + 
         scale_color_gradient(low="beige", high="blue") + 
         labs(title='Average Risk score for each zipcode in the Gulf Coast')
+
 ```
 
-
-
-Of these, we would like to look at Florida in more depth. Florida is in a unique position where there are large portions of the state where many people live with high risk scores. 
-```{r}
+<br>
+We would like to look at Florida in more depth. Florida is in a unique position where there are large portions of the state where many people live with high risk scores.
+```{r echo=TRUE, message=FALSE}
+# Filter data for florida only
 fl <- filter(.data=merged, state == 'FL')
-fl
-```
 
-```{r}
 fl_only_bbox <- c(-90, 24, -78, 31)
-fl_only_merged <- filter(.data=merged, latitude >= fl_only_bbox[2], latitude <= fl_only_bbox[4], 
-                    longitude >= fl_only_bbox[1], longitude <= fl_only_bbox[3])
-fl_only_map<-get_map(location=fl_only_bbox, zoom=6, maptype = 'terrain',
-             source='osm',color='color')
+fl_only_merged <- filter(.data=merged, latitude >= fl_only_bbox[2], 
+                         latitude <= fl_only_bbox[4], 
+                         longitude >= fl_only_bbox[1], 
+                         longitude <= fl_only_bbox[3])
+fl_only_map<- get_map(location=fl_only_bbox, zoom=6, maptype = 'terrain',
+                      source='osm',color='color')
+
 # Overlay the risk scores to understand
-# make the absolute value of the percentage off the size. We care about the magnitude of their error, not necessarily the size for a broad overview.
-ggmap(fl_only_map)+ geom_point(
-        aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all, size=abs(pct_fs_fema_difference_2020)), 
-        data=fl_only_merged, alpha=.4, na.rm = T)  + 
-        scale_color_gradient2(low="red", mid="white", high="blue") + 
-        labs(title='Average Risk score for each zipcode in Florida')
+# Make the absolute value of the percent diff between FSF and FEMA the size. 
+# We care about the magnitude of their error, 
+# not necessarily the size for a broad overview.
+ggmap(fl_only_map) +
+  geom_point(aes(x=longitude, y=latitude, 
+                 show_guide = TRUE, 
+                 colour=avg_risk_score_all, 
+                 size=abs(pct_fs_fema_difference_2020)), 
+             data=fl_only_merged, alpha=.4, na.rm = T)  + 
+  scale_color_gradient2(low="red", mid="white", high="blue") + 
+  labs(title='Average Risk score for each zipcode in Florida')
 ```
-
-```{r}
-ggplot(fl_only_merged, aes(x=avg_risk_score_all, y=total_pop)) + geom_point()
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+\newpage
 
 In September of 2005, Hurricane Katrina, a Category 5 storm, destroyed New Orleans and was at the time the costliest tropical cyclone on record. There was much criticism of the government response, especially when people began to observe mass negligence and mismanagment, and were even more enraged when they believed it was fueled by race or class. One of the more memorable moments was when rapper, producer, fashion designer, and future presidential nominee Kanye West criticized the George Bush administration, calling them out because he thought "George Bush doesn't care about Black people".
 
-Since we have the percent difference between FEMA projections and projections by First Street Foundations to see if we can find a relationship between it and black/minority percentage in that zipcode.
+<br>
+Since we have the percent difference between FEMA projections and projections by First Street Foundations, we can use them to see if we can find a relationship between it and black/minority percentage in that zipcode.
 ```{r}
-
 LA_m <- filter(merged, state == 'LA')
-
 yint <- mean(LA_m$pct_fs_fema_difference_2020)
-
-
 merged %>%
   filter(state == 'LA') %>%
   ggplot(mapping = aes(x = (prop_black),
@@ -265,57 +190,45 @@ merged %>%
   geom_point(alpha = 0.5) + 
   geom_hline(yintercept = yint,color='red')
 ```
-
-
-We find the regression to be pct_difference = -14.2 + 16.3(prop_black), however the standard error is incredibly high, and 
+<br>
+Fit a regression to this data
 ```{r}
 LA_fit <- stan_glm(data = LA_m, pct_fs_fema_difference_2020 ~ prop_black +
                      median_incomeE + prop_black:median_incomeE, refresh=0)
 LA_fit
-#p <- predict(LA_fit)
-#gt <- slice_head(drop_na(data=LA_m, pct_fs_fema_difference_2020)$pct_fs_fema_difference_2020, 464)
-#pgt <- data.frame(p, gt)
-#ggplot(data=pgt, mapping = aes(x=gt, y=p)) + 
-#  geom_point() + 
-#  geom_abline()
 ```
+<br>
+We find the regression to be pct_difference = -12.4 + 18.6(prop_black). 
+However the standard error is incredibly high and its 95% confidence interval includes 0.
+\newpage
 
 ## Housing Changes
 
 To get a picture of how the real estate market would change as a result of flooding, let's first try to understand the real estate market. Here, we'll be taking a look at both residential rent prices. Residential home prices are coming from the Housing and Urban Development's Small area fair market rents, which are used to give vouchers for people on section 8 housing. These should be relatively accurate in reflecting current fair market rents. 
 
-We would like to limit it to the state of florida since the way that rent prices are determined varies widly from region to region, much less state to state. 
+<br>
 
+We would like to limit it to the state of florida since the way that rent prices are determined varies widly from region to region, much less state to state.
 Out of 1469 zip codes in Florida, we have residential rental data on 1431.
-
+<br>
 Let's unpack the dataset and merge it with our existing. 
-```{r}
-rent_price <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/fy2021-safmrs.csv")
-rent_price
-```
+```{r echo=TRUE, message = FALSE}
+#rent_price <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/fy2021-safmrs.csv")
+rent_price <- read_csv("data/fy2021-safmrs.csv")
 
-```{r}
-# rename some stuff
+# rename columns
 names(rent_price)[names(rent_price) == 'ZIP\nCode'] <- 'zip'
 names(rent_price)[names(rent_price) == 'HUD Metro Fair Market Rent Area Name'] <- 'RegionName'
 names(rent_price)[names(rent_price) == 'SAFMR\n2BR -\n110%\nPayment\nStandard'] <- 'BR2_rent'
-names(rent_price)
-names(merged)
-```
 
-
-
-```{r}
 # Merge things in
 rent_price <- filter(rent_price, grepl("FL", RegionName))
-
 merged_rent <- inner_join(rent_price, merged, by = c("zip" = "GEOID"))
 merged_rent <- merged_rent %>% 
   filter(!is.na(BR2_rent)) %>%
   transmute(zip, BR2_rent=parse_number(BR2_rent), total_pop, prop_black, 
             count_property, median_incomeE, pct_fs_fema_difference_2020, 
             avg_risk_score_all, state, city, longitude, latitude)
-
 rent_mean <- mean(merged_rent$BR2_rent)
 rent_sd <- sd(merged_rent$BR2_rent)
 # Z score the rent, log median income and property count and total_population
@@ -323,50 +236,53 @@ merged_rent <- mutate(merged_rent, BR2_z = (BR2_rent - rent_mean) / rent_sd,
                       log_incomeE = log(median_incomeE), 
                       log_property = log(count_property), log_pop=log(total_pop))
 
-names(merged_rent)
 merged_rent <- drop_na(merged_rent)
 merged_rent
+
 ```
-
-
-```{r}
-rent_fit <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
-                       log_property+log_incomeE, refresh=0)
+<br>
+Fit a regression to predict rent change.
+```{r echo=TRUE}
+rent_fit <- stan_glm(data=merged_rent, 
+                     BR2_z ~ log_pop+prop_black+log_property+log_incomeE, 
+                     refresh=0)
 rent_fit
 coef(rent_fit)
 ```
+<br>
 
 We try to compare different fits by using different predictors and interactors
-```{r}
+```{r echo=TRUE}
 rent_fit_a <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
                          log_property+log_incomeE, refresh=0)
 rent_fit_a
-
 rent_fit_b <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
                          log_property+log_incomeE+
                          log_incomeE:log_property, refresh=0)
 rent_fit_b
-
 rent_fit_c <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
                          log_property+log_incomeE+
                          log_property:log_pop, refresh=0)
 rent_fit_c
 ```
-```{r}
+
+
+```{r echo=TRUE}
 # we compare these with loo_cv
 a_loo <- loo(rent_fit_a, k_threshold = 0.7)
 b_loo <- loo(rent_fit_b, k_threshold = 0.7)
 c_loo <- loo(rent_fit_c, k_threshold = 0.7)
-
 loo_compare(a_loo, b_loo, c_loo)
 ```
 The three regression models after going through leave-one-out cross validation we can see their predictive accuracy. We find that c_fit has the highest predictive accuracy when looking at the elpd_diff relative to the standard error when compared with a_fit and b_fit
-```{r}
+
+```{r echo=TRUE}
 rent_fit <- rent_fit_c
 ```
+<br>
 
-
-```{r}
+Simulate a disaster where we lose a certain number of properties
+```{r echo=TRUE}
 # simulate a disaster where we lose a certain number of properties 
 # take a normal random and multiplied against avg_risk_score which 
 # ranges from 0 to 10 and that percentage is lost. 
@@ -379,16 +295,13 @@ post_rent <- drop_na(post_rent)
 n_draws <- 10
 preds <- posterior_predict(rent_fit, newdata=post_rent, draws=n_draws)
 preds <- apply(preds, 2, median, na.rm=TRUE)
-length(preds)
 ```
-
 
 ```{r}
 # subtract the original rent prices from predictions to find 
 # estimated nominal rent difference 
 merged_rent$delta_rent <- preds * rent_sd - merged_rent$BR2_z * rent_sd
 merged_rent
-
 ```
 ```{r}
 fl_only_bbox <- c(-88, 25, -79.5, 31)
@@ -401,6 +314,137 @@ ggmap(fl_only_map)+ geom_point(
         scale_color_gradient2(low="blue", mid="white", high="red") + 
         labs(title='Change in rent in $ for each zipcode in Florida')
 ```
+\newpage
+
+## Demographic analysis
+<br>
+Here, we try to analyze whether there is a relationship between the demographics of a community and their predicted flood risk
+<br>
+Set aside some of the data as test data to evaluate our models.
+``` {r echo=TRUE}
+sims <- sample(nrow(merged), 20000)
+train <- slice(merged, sims)
+test <- slice(merged, -1*sims)
+```
+
+Fit a regression on percentage at risk in 2050 (within 100km) of the county using median age, total population, median income, proportion black, proportion non-white, and percentage at risk in 2020 as predictors. We log transform total_pop, count_property, and median_incomeE to account for their skewness.
+``` {r echo=TRUE}
+# Fit #0
+fit0 <- stan_glm(pct_fs_risk_2050_100 ~ prop_nonwhite + log(median_incomeE) + median_age + log(total_pop) + pct_fs_risk_2020_100,
+                 data = train,
+                 refresh = 0)
+summary(fit0, digits=2)
+```
+As expected, the coefficient on the percentage of properties at risk in 2020 is close to 1 since it is basically an offset.
+We find that the coefficient on proportion nonwhite is 1.92 with a 95% confidence interval of (1.6, 2.24). Since this does not include 0, we can say that there is a positive correlation between a county's risk score and the proportion that is black. Specifically, when the other predictors are held constant, every percentage increase in black population leads to a 2.57% increase in 2050 flood risk.
+<br>
+
+Check residual plot for fit #0 using test data.
+``` {r echo=TRUE}
+preds <- predict(fit0, newdata = test)
+res <- test$pct_fs_risk_2050_100 - preds
+test %>%
+  ggplot(mapping = aes(x = preds,
+                       y = res)) + 
+  geom_point(color = "red",
+             alpha = 0.75) + 
+  geom_hline(yintercept = 0) +
+  ggtitle("Residual Plot of Fit #0")
+```
+The fit is not very good. This is because a linear regression (though easy to interpret) is probably not the best fit here since the outcome variable is a proportion that is bounded between 0 and 1.
+<br>
+
+Instead, let's fit a linear regression that predicts the number of properties that will be at risk in 2050.
+The counts will be log transformed since they are skewed.
+``` {r echo=TRUE}
+# Fit #1
+fit1 <- stan_glm(log(count_fs_risk_2050_100) ~ prop_nonwhite + 
+                   log(median_incomeE) + median_age + log(total_pop) + 
+                   log(count_fs_risk_2020_100),
+                 data = train,
+                 refresh = 0)
+summary(fit1, digits=2)
+```
+<br>
+As expected, the coefficient on the number of properties at risk in 2020 is 1 since it is basically an offset.
+The coefficient on prop_nonwhite is again noticeably high with a tight confidence interval. At 0.09, it tells us that when all else is equal, every percentage increase in nonwhite population causes the log of the number of properties at risk in 2050 to go up by 0.09.
+<br>
+Check the residual plot for fit #1
+``` {r echo=TRUE}
+preds <- predict(fit1, newdata = test)
+res <- log(test$count_fs_risk_2050_100) - preds
+test %>%
+  ggplot(mapping = aes(x = preds,
+                       y = res)) + 
+  geom_point(color = "red",
+             alpha = 0.75) + 
+  geom_hline(yintercept = 0) +
+  ggtitle("Residual Plot for Fit#1")
+```
+<br>
+This residual plot is much better as the points seem to be spread more evenly.
+<br>
+
+Finally, since the number of houses at risk is a count, we can try to fit a poisson regression.
+``` {r echo=TRUE}
+# Poisson regression
+fit2 <- stan_glm(count_fs_risk_2050_100 ~ prop_nonwhite + log(median_incomeE) + 
+                   median_age + log(total_pop),
+                 offset = log(count_fs_risk_2020_100),
+                 data = train,
+                 family = poisson,
+                 refresh = 0)
+summary(fit2, digits=4)
+```
+<br>
+Again, we see prop_nonwhite having a very large impact with the highest coefficient of all the predictors. In addition, it has a very small standard error.
+<br>
+Evaluate this fit by comparing the distribution of the model with the true distribution of the test data.
+``` {r echo=TRUE}
+# Plot the fit
+# Generate 1000 draws
+yrep_4 <- posterior_predict(fit2, newdata = test, 
+                            offset = log(test$count_fs_risk_2020_100), 
+                            draws=1000)
+n_sims <- nrow(yrep_4)
+
+sims_display <- sample(n_sims, 100)
+ppc_dens_overlay(log10(test$count_fs_risk_2050_100 + 1) , log10(yrep_4[sims_display, ] + 1)) + 
+  xlab('log10(y + 1)') +
+  theme(axis.line.y = element_blank()) +
+  ggtitle("Poisson Fit with Pre-treatment variables")
+```
+<br>
+The model fits fairly well. 
+<br>
+Now, compare the 3 models using RMSE. All predictions will be converted so that they output the number of properties at risk in 2050.
+``` {r echo=TRUE}
+# Have every model predict counts
+fit0_count_preds <- predict(fit0, newdata = test) * test$count_property
+fit1_count_preds <- exp(predict(fit1, newdata = test))
+fit2_count_preds <- colMeans(yrep_4)
+actual_counts <- test$count_fs_risk_2050_100
+
+fit0_RMSE <- sqrt(mean((fit0_count_preds - actual_counts)^2))
+fit1_RMSE <- sqrt(mean((fit1_count_preds - actual_counts)^2))
+fit2_RMSE <- sqrt(mean((fit2_count_preds - actual_counts)^2))
+
+paste("Fit #0 RMSE: ", fit0_RMSE)
+paste("Fit #1 RMSE: ", fit1_RMSE)
+paste("Fit #2 RMSE: ", fit2_RMSE)
+```
+<br>
+The Poisson model fits best, though the second linear regression comes very close.
+In both of these models, the coefficients signal that the nonwhite proportion of the population strongly correlates with the number of properties that will be at risk.
+\newpage
+
+## Conclusion
+
+
+
+
+
+
 
 
 
