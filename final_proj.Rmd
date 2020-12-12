@@ -323,13 +323,14 @@ ggmap(fl_only_map)+ geom_point(
         scale_color_gradient2(low="blue", mid="white", high="red") + 
         labs(title='Change in rent in $ for each zipcode in Florida')
 ```
-As displayed here graphically, we can see that rent actually falls in many places, even with supply falling and assuming that the demand is still there. Some areas, such as the north, 
+As displayed here graphically, we can see that rent actually falls in many places, even with supply falling and assuming that the demand is still there. Some areas, such as the north, have the rent increased as we expected.
 
 \newpage
 
 ## Demographic analysis
 <br>
-Here, we try to analyze whether there is a relationship between the demographics of a community and their predicted flood risk
+Here, we try to analyze whether there is a relationship between the demographics of a community and its predicted flood risk.
+Specifically, we try to model future flood risk using current flood risk and demographic data.
 <br>
 Set aside some of the data as test data to evaluate our models.
 ``` {r echo=TRUE}
