@@ -6,6 +6,30 @@ output: pdf_document
 ---
 # Effects of Global Warming Induced Flooding on Low Lying Areas
 
+## Introduction
+Global Warming is a present and clear danger to all those living on Earth. The question concerning feeling its effects is no longer if but when. We must understand the near-term effects of global warming as the environmental effects worsen to make adequate changes. We were particularly interested as young people who reside on the coasts, concerned for the probable loss of our beaches and our neighborhoods.
+
+## Question
+We would like to explore the demographic and economic changes due to challenges that are brought on by increased flooding near coastal areas as the sea levels rise, focusing on the severity with different flooding conditions over time. More specifically, working with the First Street Climate dataset, we would like to ask which and what types of communities were affected the most by errors in FEMA’s calculations of risk levels. We would like to highlight the potential transformations in inequality brought on by human migration catalyzed by flooding, as well as changes in residential property markets as a result.
+
+## Dataset
+We used the “First Street Climate Flood Risk Statistics” dataset which provides the first-ever public evaluation of flood risk for every property in the 48 contiguous states. The dataset provides flood risk statistics and scores at the congressional district, county, ad zip code level. Counties and properties are evaluated for flood risk based on factors such as location, climate, infrastructure, and more. We have paired this data with county-level demographic and economic data provided by tidycensus library in order to evaluate which groups are most impacted by the increased risk of flooding that comes with climate change. We also used the Housing and Urban Development Section 8 voucher data to be able to simulate and predict rent prices when demographic and economic environments change as a result of human migration. Finally, we hope to compare the government-provided “FEMA Flood Map” data with the more-recent First Street dataset to see if the federal maps overestimate or underestimate the flood risk posed by climate change.
+
+## Measurement Issues
+Both the FEMA Flood Map and the First Street Climate Flood Risk Statistics are only estimates of risk of flooding in the event of a hypothetical catastrophe. We tried to shore up our measurement issues by relying on First Street’s model which found deficiencies and discrepancies with FEMA’s measurements. 
+The housing and urban development’s section 8 voucher program does not accurately reflect the rental prices in real time, however they are a good index to differentiate the expensive, higher cost of living parts of town against the cheaper parts of town, as well as a ballpark number that approximately reflects rental prices. This is also not granular since within zipcodes real estate and rental values can change based on location (i.e. easy access to public transportation, clear views or proximity to the ocean, road noise being next to a busy highway or intersection). 
+
+## Missing Data
+There was missing rent data for section 8 housing. We dealt with this by removing data points without rent and working with it. Because rent is based solely on local conditions and not too much on what other non neighboring rents are, we would be unable to predict it with just the mean of the dataset. 
+
+## Inferences/Assumptions
+Because the dataset gave us the average risk of flooding in a hypothetical scenario, in the case of predicting rent, we took the risk number and related it with the percent of houses lost from devastation. Although the total_property variable does not reflect the total number of rental properties, it is a good indicator for the number of properties in the region. 
+We also assumed that all the other variables would stay the same, most notably the population. Although there is always tragic losses of lives in these events, we made this assumption since deaths even in the worst disasters, such as Katrina (1800) or Irma (134), would be a very small percentage difference due to the overall population of Florida being more than 20 million residents. 
+
+
+
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -21,8 +45,8 @@ data(zipcode)
 First, import the First Street Foundation (FSF) Flood Risk Summary Statistics by zip
 found here: https://registry.opendata.aws/fsf-flood-risk/?fbclid=IwAR2JUyZWXcXiKdXuXMXON-1VmcUm6RpCnUVXMiydCrrDCaXHg41zdkD-iI8
 ``` {r echo=TRUE, message=FALSE}
-zip_risk <- read_csv("./data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
-# zip_risk <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/FSF/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+#zip_risk <- read_csv("./data/fsf/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
+ zip_risk <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/FSF/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
 zip_risk
 ```
 
@@ -31,7 +55,6 @@ Next, import data about each zip code in the US uing the tidycensus package
 ``` {r echo=TRUE, message=FALSE}
 library(tidycensus)
 census_api_key("0a473d1b1e161d8f87da3ad85e59af583f28f1d6")
-
 # Variable codes found here: 
 # https://api.census.gov/data/2010/dec/sf1/variables.html
 # P013001: MEDIAN AGE
@@ -45,7 +68,6 @@ zip_dem_data <- get_decennial(geography = "zcta",
                                         total_black = "H006003"),
                           year = 2010,
                           output = "wide")
-
 zip_income_data <- get_acs(geography = "zcta",
                            variables = c(median_income = "B19013_001"),
                            year = 2018,
@@ -70,7 +92,6 @@ merged <- inner_join(zip_dem_data, zip_risk, by = c("GEOID" = "zcta5ce")) %>%
          median_incomeE > 0,
          median_age > 0,
          total_pop > 0)
-
 merged
 ```
 \newpage
@@ -83,7 +104,6 @@ Graph of FEMA average risk scores per zip code overlayed across entire Continent
 conus_map<- get_map(location=c(-124.848974, 24.396308, -66.885444, 49.384358), 
                     zoom=5, maptype = 'terrain',
                     source='osm',color='color')
-
 ggmap(conus_map) + 
   geom_point(aes(x=longitude, 
                  y=latitude, 
@@ -114,10 +134,8 @@ Three regions jump out: Kentucky/West Virginia, Coast of Virginia, and the Gulf 
 wv_bbox <- c(-85, 35, -75, 42)
 wv_map<-get_map(location=wv_bbox, zoom=6, maptype = 'terrain',
              source='osm',color='color', size = c(800, 800))
-
 wv_merged <- filter(.data=merged, latitude >= wv_bbox[2], latitude <= wv_bbox[4],
                     longitude >= wv_bbox[1], longitude <= wv_bbox[3])
-
 # Overlay the risk scores to understand
 ggmap(wv_map)+ geom_point(
         aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
@@ -133,17 +151,14 @@ The majority of risk in West Virginia comes from around Charleston along the riv
 fl_bbox <- c(-100, 25, -75, 32)
 fl_map<-get_map(location=fl_bbox, zoom=6, maptype = 'terrain',
              source='osm',color='color')
-
 fl_merged <- filter(.data=merged, latitude >= fl_bbox[2], latitude <= fl_bbox[4], 
                     longitude >= fl_bbox[1], longitude <= fl_bbox[3])
-
 # Overlay the risk scores to understand
 ggmap(fl_map)+ geom_point(
         aes(x=longitude, y=latitude, show_guide = TRUE, colour=avg_risk_score_all), 
         data=fl_merged, alpha=.5, na.rm = T)  + 
         scale_color_gradient(low="beige", high="blue") + 
         labs(title='Average Risk score for each zipcode in the Gulf Coast')
-
 ```
 
 <br>
@@ -151,7 +166,6 @@ We would like to look at Florida in more depth. Florida is in a unique position 
 ```{r echo=TRUE, message=FALSE}
 # Filter data for florida only
 fl <- filter(.data=merged, state == 'FL')
-
 fl_only_bbox <- c(-90, 24, -78, 31)
 fl_only_merged <- filter(.data=merged, latitude >= fl_only_bbox[2], 
                          latitude <= fl_only_bbox[4], 
@@ -159,7 +173,6 @@ fl_only_merged <- filter(.data=merged, latitude >= fl_only_bbox[2],
                          longitude <= fl_only_bbox[3])
 fl_only_map<- get_map(location=fl_only_bbox, zoom=6, maptype = 'terrain',
                       source='osm',color='color')
-
 # Overlay the risk scores to understand
 # Make the absolute value of the percent diff between FSF and FEMA the size. 
 # We care about the magnitude of their error, 
@@ -204,23 +217,20 @@ However the standard error is incredibly high and its 95% confidence interval in
 
 ## Housing Changes
 
-To get a picture of how the real estate market would change as a result of flooding, let's first try to understand the real estate market. Here, we'll be taking a look at both residential rent prices. Residential home prices are coming from the Housing and Urban Development's Small area fair market rents, which are used to give vouchers for people on section 8 housing. These should be relatively accurate in reflecting current fair market rents. 
+To get a picture of how the real estate market would change as a result of flooding, let's first try to understand the real estate market. Here, we'll be taking a look at both residential rent prices. Residential home prices are coming from the Housing and Urban Development's Small area fair market rents, which are used to give vouchers for people on section 8 housing. These should be relatively accurate in reflecting current fair market rents. Specifically, we'll be taking a look at the 110% payment standard for a 2 Bedroom house in case our HUD numbers are a little low across all zip codes.
 
 <br>
 
-We would like to limit it to the state of florida since the way that rent prices are determined varies widly from region to region, much less state to state.
-Out of 1469 zip codes in Florida, we have residential rental data on 1431.
+We would like to limit it to the state of florida since the way that rent prices are determined varies wildly from region to region, much less state to state. Out of 1469 zip codes in Florida, we have residential rental data on 1431, so we'll be predicting on those.
 <br>
-Let's unpack the dataset and merge it with our existing. 
+Let's unpack the dataset and merge it with our existing flooding data. We'll first transform our variables. Since our rent price variable are all clustered between \$1000 to \$2000, let's transform it into the zscore by subtracting the mean and dividing by the standard deviation. We can convert the other variables like meidan income, count_property and total population to the log version since the ranges are a lot larger to lessen the effect of outliers. 
 ```{r echo=TRUE, message = FALSE}
-#rent_price <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/fy2021-safmrs.csv")
-rent_price <- read_csv("data/fy2021-safmrs.csv")
-
+rent_price <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/fy2021-safmrs.csv")
+#rent_price <- read_csv("data/fy2021-safmrs.csv")
 # rename columns
 names(rent_price)[names(rent_price) == 'ZIP\nCode'] <- 'zip'
 names(rent_price)[names(rent_price) == 'HUD Metro Fair Market Rent Area Name'] <- 'RegionName'
 names(rent_price)[names(rent_price) == 'SAFMR\n2BR -\n110%\nPayment\nStandard'] <- 'BR2_rent'
-
 # Merge things in
 rent_price <- filter(rent_price, grepl("FL", RegionName))
 merged_rent <- inner_join(rent_price, merged, by = c("zip" = "GEOID"))
@@ -235,13 +245,11 @@ rent_sd <- sd(merged_rent$BR2_rent)
 merged_rent <- mutate(merged_rent, BR2_z = (BR2_rent - rent_mean) / rent_sd, 
                       log_incomeE = log(median_incomeE), 
                       log_property = log(count_property), log_pop=log(total_pop))
-
 merged_rent <- drop_na(merged_rent)
 merged_rent
-
 ```
 <br>
-Fit a regression to predict rent change.
+Let's fit an initial regression to predict rent change. 
 ```{r echo=TRUE}
 rent_fit <- stan_glm(data=merged_rent, 
                      BR2_z ~ log_pop+prop_black+log_property+log_incomeE, 
@@ -250,6 +258,7 @@ rent_fit
 coef(rent_fit)
 ```
 <br>
+For our initial fit, it seems that the standard error isn't too high. What's interesting here is that the number of property is inversely correlated with rent price and total population is directly correlated, which is to be expected of the basic concept of supply and demand. Income seems to also be the most impactful variable, which makes sense since there are rich areas where rich people pay high rent together and the poor people pay low rent together. 
 
 We try to compare different fits by using different predictors and interactors
 ```{r echo=TRUE}
@@ -265,7 +274,7 @@ rent_fit_c <- stan_glm(data=merged_rent, BR2_z ~ log_pop+prop_black+
                          log_property:log_pop, refresh=0)
 rent_fit_c
 ```
-
+Looking at the fits of each, we can see that the standard errors are relatively low and the fits are okay. 
 
 ```{r echo=TRUE}
 # we compare these with loo_cv
@@ -274,14 +283,14 @@ b_loo <- loo(rent_fit_b, k_threshold = 0.7)
 c_loo <- loo(rent_fit_c, k_threshold = 0.7)
 loo_compare(a_loo, b_loo, c_loo)
 ```
-The three regression models after going through leave-one-out cross validation we can see their predictive accuracy. We find that c_fit has the highest predictive accuracy when looking at the elpd_diff relative to the standard error when compared with a_fit and b_fit
-
+The three regression models after going through leave-one-out cross validation we can see their predictive accuracy. We find that b_fit has the highest predictive accuracy when looking at the elpd_diff relative to the standard error when compared with a_fit and b_fit
+This would make sense since income had the largest slope. 
 ```{r echo=TRUE}
-rent_fit <- rent_fit_c
+rent_fit <- rent_fit_b
 ```
 <br>
 
-Simulate a disaster where we lose a certain number of properties
+Simulate a disaster where we lose a certain number of properties. We can do this by multiplying a one-sided random normal number with the risk score and taking that to be the percent of houses damaged and unable to rent to. Depending on how much damage we want, we could move the mean or the standard deviation. We take the new count of property excluding the damaged property, apply the appropriate transformation as before and simulate 10 draws each with the posterior prediction. We take the median of the generated numbers to be the predicted rents to be our prediction.
 ```{r echo=TRUE}
 # simulate a disaster where we lose a certain number of properties 
 # take a normal random and multiplied against avg_risk_score which 
@@ -296,7 +305,7 @@ n_draws <- 10
 preds <- posterior_predict(rent_fit, newdata=post_rent, draws=n_draws)
 preds <- apply(preds, 2, median, na.rm=TRUE)
 ```
-
+We subtract our prediction from the original rent to find out the change.
 ```{r}
 # subtract the original rent prices from predictions to find 
 # estimated nominal rent difference 
@@ -314,6 +323,8 @@ ggmap(fl_only_map)+ geom_point(
         scale_color_gradient2(low="blue", mid="white", high="red") + 
         labs(title='Change in rent in $ for each zipcode in Florida')
 ```
+As displayed here graphically, we can see that rent actually falls in many places, even with supply falling and assuming that the demand is still there. We can conclude that in this model, some real estate markets, especialy around Miami, are supply inelastic. We can see that the more north we go, the higher the prices are. alaaaaa
+
 \newpage
 
 ## Demographic analysis
@@ -407,7 +418,6 @@ yrep_4 <- posterior_predict(fit2, newdata = test,
                             offset = log(test$count_fs_risk_2020_100), 
                             draws=1000)
 n_sims <- nrow(yrep_4)
-
 sims_display <- sample(n_sims, 100)
 ppc_dens_overlay(log10(test$count_fs_risk_2050_100 + 1) , log10(yrep_4[sims_display, ] + 1)) + 
   xlab('log10(y + 1)') +
@@ -424,11 +434,9 @@ fit0_count_preds <- predict(fit0, newdata = test) * test$count_property
 fit1_count_preds <- exp(predict(fit1, newdata = test))
 fit2_count_preds <- colMeans(yrep_4)
 actual_counts <- test$count_fs_risk_2050_100
-
 fit0_RMSE <- sqrt(mean((fit0_count_preds - actual_counts)^2))
 fit1_RMSE <- sqrt(mean((fit1_count_preds - actual_counts)^2))
 fit2_RMSE <- sqrt(mean((fit2_count_preds - actual_counts)^2))
-
 paste("Fit #0 RMSE: ", fit0_RMSE)
 paste("Fit #1 RMSE: ", fit1_RMSE)
 paste("Fit #2 RMSE: ", fit2_RMSE)
@@ -438,20 +446,10 @@ The Poisson model fits best, though the second linear regression comes very clos
 In both of these models, the coefficients signal that the nonwhite proportion of the population strongly correlates with the number of properties that will be at risk.
 \newpage
 
+## Next Steps
+	We hope to find additional datasets that may yield more granular data in risk factors, such as geographical data that we were unable to extract from GIS systems, or datasets on natural or artificial systems that would either alleviate or restore normalcy after a disaster has struck. These would help us better understand which zipcodes would perform better in disaster scenarios. Another avenue of research that could be taken is applying more complex models to use to decrease the errors found in our current models. 	
+
 ## Conclusion
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
