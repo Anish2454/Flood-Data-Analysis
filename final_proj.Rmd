@@ -28,6 +28,8 @@ We also assumed that all the other variables would stay the same, most notably t
 
 
 
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -47,7 +49,6 @@ found here: https://registry.opendata.aws/fsf-flood-risk/?fbclid=IwAR2JUyZWXcXiK
  zip_risk <- read_csv("/cloud/project/Final/Flood-Data-Analysis-master/data/FSF/v1.1/Zip_level_risk_FEMA_FSF_v1.1.csv")
 zip_risk
 ```
-
 <br>
 Next, import data about each zip code in the US uing the tidycensus package
 ``` {r echo=TRUE, message=FALSE}
@@ -281,7 +282,8 @@ b_loo <- loo(rent_fit_b, k_threshold = 0.7)
 c_loo <- loo(rent_fit_c, k_threshold = 0.7)
 loo_compare(a_loo, b_loo, c_loo)
 ```
-The three regression models after going through leave-one-out cross validation we can see their predictive accuracy. We find that b_fit has the highest predictive accuracy when looking at the elpd_diff relative to the standard error when compared with a_fit and b_fit
+The three regression models after going through leave-one-out cross validation we can see their predictive accuracy. We find that b_fit has the highest predictive accuracy when looking at the elpd_diff relative to the standard error when compared with a_fit and c_fit. We can interpret the coefficients of b_fit. There is an average rise of 0.6 in z score (0.6 * standard deviation rise in rent dollars)  for every rise in 1 point of log of population, or an increase by a multiple of e in population. There is an average rise of 0.7 in z score (0.7 * standard deviation rise in rent dollars)  between having 100% black proportion in the population vs 0% in the population. There is an average rise of 2.1 in z score (2.1 * standard deviation rise in rent dollars)  for every rise in 1 point of log of median income, or an increase by a multiple of e in median income. This trend is reversed with the log of total number of properties. There is an average decrease of 0.4 in z score (0.4 * standard deviation rise in rent dollars)  for every rise in 1 point of log of number of properties, or an increase by a multiple of 1/e in total property count. 
+
 This would make sense since income had the largest slope. 
 ```{r echo=TRUE}
 rent_fit <- rent_fit_b
@@ -321,14 +323,13 @@ ggmap(fl_only_map)+ geom_point(
         scale_color_gradient2(low="blue", mid="white", high="red") + 
         labs(title='Change in rent in $ for each zipcode in Florida')
 ```
-As displayed here graphically, we can see that rent actually falls in many places, even with supply falling and assuming that the demand is still there. We can conclude that in this model, some real estate markets, especialy around Miami, are supply inelastic. We can see that the more north we go, the higher the prices are. alaaaaa
+As displayed here graphically, we can see that rent actually falls in many places, even with supply falling and assuming that the demand is still there. Some areas, such as the north, 
 
 \newpage
 
 ## Demographic analysis
 <br>
-Here, we try to analyze whether there is a relationship between the demographics of a community and its predicted flood risk.
-Specifically, we try to model future flood risk using current flood risk and demographic data.
+Here, we try to analyze whether there is a relationship between the demographics of a community and their predicted flood risk
 <br>
 Set aside some of the data as test data to evaluate our models.
 ``` {r echo=TRUE}
@@ -446,14 +447,17 @@ In both of these models, the coefficients signal that the nonwhite proportion of
 \newpage
 
 ## Next Steps
-We hope to find additional datasets that may yield more granular data in risk factors, such as geographical data that we were unable to extract from GIS systems, or datasets on natural or artificial systems that would either alleviate or restore normalcy after a disaster has struck. These would help us better understand which zipcodes would perform better in disaster scenarios. Another avenue of research that could be taken is applying more complex models to use to decrease the errors found in our current models. 	
-
+	We hope to find additional datasets that may yield more granular data in risk factors, such as geographical data that we were unable to extract from GIS systems, or datasets on natural or artificial systems that would either alleviate or restore normalcy after a disaster has struck. These would help us better understand which zipcodes would perform better in disaster scenarios. Another avenue of research that could be taken is applying more complex models to use to decrease the errors found in our current models. 	
 
 ## Conclusion
-
-With the demographic exploration, we found a clear relationship between the nonwhite proportion of a community and its increase in flood risk from 2020 to 2050. Not only was there a positive correlation between the county's nonwhite proportion and its increase in flood risk, but this correlation was stronger than
-all other predictors (median income, age, etc.).
+With regards to the rental data, we find that Florida rental prices are directly correlated with median income, proportion of black, total population but inversely correlated with the number of property. 
+In a simulated disaster, we find that  there are different changes in rent with a overall shrink in housing supply. We find that the while the miami areas actually experience a decrease in rent, poorer areas such as the panhandle experience an expected increase in rent. Miami’s result is unexpected as the slope on the log of population was at 0.6, but this may be due to the randomness introduced when we ran simulations or this could be due to Miami’s apparent resistance to flooding. 
+With the demographic exploration, we found a clear relationship between the nonwhite proportion of a community and its increase in flood risk from 2020 to 2050. Not only was there a positive correlation between the county's nonwhite proportion and its increase in flood risk, but this correlation was stronger than all other predictors (median income, age, etc.).
 However, it is difficult to claim any causal relationship as the number of predictors available was limited and we don't know if there are any external predictors that affect the outcome but weren't included in the model.
+
+
+
+
 
 
 
