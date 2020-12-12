@@ -452,8 +452,10 @@ In both of these models, the coefficients signal that the nonwhite proportion of
 
 ## Conclusion
 With regards to the rental data, we find that Florida rental prices are directly correlated with median income, proportion of black, total population but inversely correlated with the number of property. 
-In a simulated disaster, we find that  there are different changes in rent with a overall shrink in housing supply. We find that the while the miami areas actually experience a decrease in rent, poorer areas such as the panhandle experience an expected increase in rent. Miami’s result is unexpected as the slope on the log of population was at 0.6, but this may be due to the randomness introduced when we ran simulations or this could be due to Miami’s apparent resistance to flooding. 
+In a simulated disaster, we find that  there are different changes in rent with a overall shrink in housing supply. We find that the while the miami areas actually experience a decrease in rent, poorer areas such as the panhandle experience an expected increase in rent. Miami’s result is unexpected as the slope on the log of population was at 0.6, but this may be due to the randomness introduced when we ran simulations or this could be due to Miami’s apparent resistance to flooding.
+<br>
 With the demographic exploration, we found a clear relationship between the nonwhite proportion of a community and its increase in flood risk from 2020 to 2050. Not only was there a positive correlation between the county's nonwhite proportion and its increase in flood risk, but this correlation was stronger than all other predictors (median income, age, etc.).
+This finding depends on the assumptions made with our model. Specifically, for linear regression we assume a linear relationship, Multivariate normality, No or little multicollinearity, No auto-correlation, and Homoscedasticity. With the poisson model, we are assuming that the mean and variance are equal.
 However, it is difficult to claim any causal relationship as the number of predictors available was limited and we don't know if there are any external predictors that affect the outcome but weren't included in the model.
 
 
