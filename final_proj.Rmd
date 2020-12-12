@@ -28,8 +28,6 @@ We also assumed that all the other variables would stay the same, most notably t
 
 
 
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -329,7 +327,8 @@ As displayed here graphically, we can see that rent actually falls in many place
 
 ## Demographic analysis
 <br>
-Here, we try to analyze whether there is a relationship between the demographics of a community and their predicted flood risk
+Here, we try to analyze whether there is a relationship between the demographics of a community and its predicted flood risk.
+Specifically, we try to model future flood risk using current flood risk and demographic data.
 <br>
 Set aside some of the data as test data to evaluate our models.
 ``` {r echo=TRUE}
@@ -447,13 +446,14 @@ In both of these models, the coefficients signal that the nonwhite proportion of
 \newpage
 
 ## Next Steps
-	We hope to find additional datasets that may yield more granular data in risk factors, such as geographical data that we were unable to extract from GIS systems, or datasets on natural or artificial systems that would either alleviate or restore normalcy after a disaster has struck. These would help us better understand which zipcodes would perform better in disaster scenarios. Another avenue of research that could be taken is applying more complex models to use to decrease the errors found in our current models. 	
+We hope to find additional datasets that may yield more granular data in risk factors, such as geographical data that we were unable to extract from GIS systems, or datasets on natural or artificial systems that would either alleviate or restore normalcy after a disaster has struck. These would help us better understand which zipcodes would perform better in disaster scenarios. Another avenue of research that could be taken is applying more complex models to use to decrease the errors found in our current models. 	
+
 
 ## Conclusion
 
-
-
-
+With the demographic exploration, we found a clear relationship between the nonwhite proportion of a community and its increase in flood risk from 2020 to 2050. Not only was there a positive correlation between the county's nonwhite proportion and its increase in flood risk, but this correlation was stronger than
+all other predictors (median income, age, etc.).
+However, it is difficult to claim any causal relationship as the number of predictors available was limited and we don't know if there are any external predictors that affect the outcome but weren't included in the model.
 
 
 
